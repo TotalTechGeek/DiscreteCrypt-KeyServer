@@ -6,7 +6,8 @@ const bodyparser = require('body-parser')
 const utilities = require('./utilities.js')
 const security = require('./security.js')(config)
 const DataStore = require("nedb")
-const PORT = config.port
+const PORT = process.env.OPENSHIFT_NODEJS_PORT ||  process.env.OPENSHIFT_INTERNAL_PORT || process.env.PORT || config.port
+const IP = process.env.OPENSHIFT_NODEJS_IP || process.env.OPENSHIFT_INTERNAL_IP || 'localhost'
 
 let db = {}
 
@@ -35,7 +36,7 @@ alias('/', '/index.html')
 alias('/list', '/contacts.html')
 alias('/create', '/create.html')
 
-app.listen(PORT, () =>
+app.listen(PORT, IP, () =>
 {
     console.log(`Listening on ${PORT}`)
 });

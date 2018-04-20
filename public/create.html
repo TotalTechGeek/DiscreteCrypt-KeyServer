@@ -13,6 +13,7 @@
     <script src="http://ricmoo.github.io/scrypt-js/thirdparty/buffer.js" type="text/javascript"></script>
     <script src="https://cdn.datatables.net/1.10.16/js/jquery.dataTables.min.js"></script>
     <script src="scripts/basylbinder.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/4.4.2/zxcvbn.js" async></script>
     <style>
         .indented
         {
@@ -94,7 +95,7 @@
                     success: data =>
                     {
                         // $$.set("percent", "")
-                        $$.set("out", ""+data)
+                        $$.set("out", data?'Submitted':'There was an issue.')
                     }
                 })
             }
@@ -127,20 +128,44 @@
                 var contact = { person: { pub: pub.toString(16), identity: $$.get("identity"), salt: salt }, scrypt: scryptValues, dh: { modulus: modulus.toString(16), generator: generator.toString(16) } }
                 submitContact(contact, priv)
             }
+
+           
             
 
         }
 
+        function c()
+        {
+            if(zxcvbn)
+            {
+                var z = zxcvbn($$.get('password'))
+                var str= Math.round(z.guesses_log10 / Math.log10(2));
+                $$.set("bits", str);
+                $$.set('suggest', z.feedback.suggestions.join('<br>'))
+                if(!$$.get('suggest').length)
+                {
+                    if(str >= 80)
+                    {
+                        $$.set('suggest', 'This is good.')
+                    }
+                    else
+                    {
+                        $$.set('suggest', 'Try to get above 80 bits for maximum longevity. (60+ is probably fine)')
+                    }
+
+                }
+            }
+        }
     </script>
 </head>
 <body>
-    <vars username identity password percent out="?"></vars>
+    <vars username identity password percent out bits=0 suggest></vars>
     
     <!-- BasylBinder Test -->
     <div watch="html" class="indented">
         <input bind="username" placeholder="Username"> <br><br>
         <input bind="identity" placeholder="Identity"> <br><br>
-        <input bind="password" placeholder="Password" type="password"> <br><br>
+        <input bind="password" placeholder="Password" type="password" onkeyup="c()"> <br> Estimated Worst Case Entropy: {{bits}} bits <br> {{suggest}} <br><br>
         <button class="btn" onclick="create()">Submit</button>
         {{percent}}
         <br>
