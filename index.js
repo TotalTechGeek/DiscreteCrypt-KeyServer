@@ -1,6 +1,12 @@
 const express = require('express')
 const app = express()
 const config = require('./config.js').data
+
+if(process.env.SECRET_SECURITY_KEY)
+{
+    config.security.key = process.env.SECRET_KEY;
+}
+
 const compression = require('compression')
 const bodyparser = require('body-parser')
 const utilities = require('./utilities.js')
@@ -8,6 +14,8 @@ const security = require('./security.js')(config)
 const DataStore = require("nedb")
 const PORT = process.env.OPENSHIFT_NODEJS_PORT ||  process.env.OPENSHIFT_INTERNAL_PORT || process.env.PORT || config.port
 const IP = process.env.OPENSHIFT_NODEJS_IP || process.env.OPENSHIFT_INTERNAL_IP || 'localhost'
+
+
 
 let db = {}
 
