@@ -33,6 +33,7 @@ function grab(req, val)
 
 alias('/', '/index.html')
 alias('/list', '/contacts.html')
+alias('/create', '/create.html')
 
 app.listen(PORT, () =>
 {

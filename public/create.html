@@ -1,0 +1,153 @@
+<html>
+<head>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.10.16/css/jquery.dataTables.min.css" crossorigin="anonymous">
+
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+    <script src="http://peterolson.github.com/BigInteger.js/BigInteger.min.js"></script>
+    <script src="http://ricmoo.github.io/scrypt-js/scrypt.js" type="text/javascript"></script>
+    <script src="http://ricmoo.github.io/scrypt-js/thirdparty/setImmediate.js" type="text/javascript"></script>
+    
+    <script src="http://ricmoo.github.io/scrypt-js/thirdparty/buffer.js" type="text/javascript"></script>
+    <script src="https://cdn.datatables.net/1.10.16/js/jquery.dataTables.min.js"></script>
+    <script src="scripts/basylbinder.min.js"></script>
+    <style>
+        .indented
+        {
+            margin: 10px 10px 10px 10px;
+            max-width: 100%;
+        }
+    </style>
+    <script>
+        const modulus = bigInt("d4c1818a5451f5578f490947dd4247c5d726ed715edebd84f6a47b0c28bdefb607ccf6040a91c71a9b6cfa78444e355cfb6f840d4790b7f46ae8de6d3eb2192fde276f00587665c48684a0f37f58cdcee54776b010eae7f2c1febaa32d90d8b05454f05420b07309d9e92f5445b2c49e4e85105b25f8d3fbe2c4537a31c884c215cdb9e8f7afec513584e01fa6c881e654ac33762e20ffc5b9a7866c36a616aa5fb0a7857477dc750ceda8e6e190cfc994f0388302c4923e0060f1c0177a85367d79ead1d175692f743a87ae052ecd24fc24cdee50f36aceebaf78ffbeba1b49cf5ae366379126895f09149a3945e062e5d68ee383ada494ae59c7151bb122fd166548a71f92af482322528f72a8a972617462d9ed36e7619068e321175370c8d2ad212fcc6194fdf3c57c4f84bd8a0ffa3a63371fdcbd27b5748125b7e869345f199c50d9d32454966edbac8a4e0c25c97db70b83cf14c64d04bb458680dc6780b30f8fb23a64e5f4a6860d114df9b2dc0c632909f03484ce09ac42a4d03aa2ed", 16)
+        const generator = bigInt("02", 16)
+
+        const scryptValues = {
+            "N": 16384,
+            "P": 16,
+            "R": 8,
+            "len": 64
+        }
+
+
+        function padBuf(x)
+        {
+            function pad(x)
+            {
+                if(x.length % 2 == 1) return '0' + x
+                return x
+            }
+            return new buffer.SlowBuffer(pad(x), 'hex');
+        }
+
+
+        function toHexString(byteArray) 
+        {
+            var s = '';
+            byteArray.forEach(byte =>
+            {
+                s += ('0' + (byte & 0xFF).toString(16)).slice(-2);
+            })
+            return s;
+        }
+
+        function submitContact(contact, priv)
+        {
+            // gets the challenge
+            $.ajax(
+            {
+                type: 'POST',
+                url: '/contact/publish/request',
+                data: {
+                    contact: contact
+                },
+                success: next
+            })
+
+            function next(data)
+            {
+                $$.set('out', JSON.stringify(data))
+                var modulus = bigInt(contact.dh.modulus, 16) 
+                var challenge = bigInt(data.challenge, 16);
+
+                var res = challenge.modPow(priv, modulus).toString(16)
+                res = [...padBuf(res)]
+
+                // gets the result
+                scrypt(res, padBuf(data.salt), data.scrypt.N, data.scrypt.R, data.scrypt.P, data.scrypt.len, (x,y,z) =>
+                {
+                    if(z)
+                    {
+                        submitResponse(toHexString(z), data)
+                    }
+                })
+            }
+
+            function submitResponse(response, data)
+            {
+                $.ajax({
+                    type: 'POST',
+                    url: '/contact/publish/confirm',
+                    data: { response: {hmac: data.hmac, data: response }, contact: contact, name: $$.get("username") },
+                    success: data =>
+                    {
+                        // $$.set("percent", "")
+                        $$.set("out", ""+data)
+                    }
+                })
+            }
+        }    
+
+        function create()
+        {
+            var password = new buffer.SlowBuffer($$.get("password").normalize('NFKC'), 'utf-8')
+            var salt = new Uint8Array(32)
+            window.crypto.getRandomValues(salt)
+            salt = toHexString(salt)
+            
+            
+            scrypt(password, padBuf(salt), scryptValues.N, scryptValues.R, scryptValues.P, scryptValues.len, (x,y,z) =>
+            {
+                $$.set("percent", y)
+
+                if(z)
+                {
+                    next(toHexString(z))
+                }
+            })
+
+            function next(priv)
+            {
+                priv = bigInt(priv, 16)
+                var pub = generator.modPow(priv, modulus)
+                
+                // Now we just compose the contact
+                var contact = { person: { pub: pub.toString(16), identity: $$.get("identity"), salt: salt }, scrypt: scryptValues, dh: { modulus: modulus.toString(16), generator: generator.toString(16) } }
+                submitContact(contact, priv)
+            }
+            
+
+        }
+
+    </script>
+</head>
+<body>
+    <vars username identity password percent out="?"></vars>
+    
+    <!-- BasylBinder Test -->
+    <div watch="html" class="indented">
+        <input bind="username" placeholder="Username"> <br><br>
+        <input bind="identity" placeholder="Identity"> <br><br>
+        <input bind="password" placeholder="Password" type="password"> <br><br>
+        <button class="btn" onclick="create()">Submit</button>
+        {{percent}}
+        <br>
+        {{out}}
+        <br> <br>
+        <a href="/list">Contacts</a> <a href="/">Submit</a> 
+    </div>
+    <script>$$.all()</script>
+</body>
+</html>

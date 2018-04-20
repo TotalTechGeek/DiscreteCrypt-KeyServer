@@ -39,7 +39,7 @@
 
         </table>
 
-        <a href="/">Submit</a>
+        <a href="/">Submit</a> <a href="/create">Create</a>
 
     </div>
 
@@ -55,10 +55,14 @@
     $.ajax({
         type: 'POST',
         url: '/contact/get/names',
-        success: data =>
+        success: function(data)
         {
             let head = []
-            if(data.length) head = Object.keys(data[0])
+            if(data.length) 
+            {
+                head = Object.keys(data[0])
+                head[0] = "username"
+            }
 
             $('<div/>').text('This is fun & stuff').html();
 
