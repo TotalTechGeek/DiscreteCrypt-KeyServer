@@ -4,7 +4,7 @@ const bigInt = require('big-integer')
 
 function createHmac(data)
 {
-    var result = crypto.createHmac(this.config.security.hash, this.config.security.key)
+    let result = crypto.createHmac(this.config.security.hash, this.config.security.key)
     
     if(Array.isArray(data))
     {
@@ -26,7 +26,7 @@ function verifyHmac(data, hmac)
 
 function toHexString(byteArray) 
 {
-    var s = '';
+    let s = '';
     byteArray.forEach(byte =>
     {
         s += ('0' + (byte & 0xFF).toString(16)).slice(-2);

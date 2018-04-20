@@ -7,7 +7,7 @@ const security = require('./security.js')(config)
 const DataStore = require("nedb")
 const PORT = config.port
 
-var db = {}
+let db = {}
 
 db.contacts = new DataStore({ filename: 'file.nedb', autoload: true })
 
@@ -41,9 +41,8 @@ app.listen(PORT, () =>
 
 app.post('/contact/publish/request', (req, res) => 
 {
-    var contact = req.body.contact
-
-    var trial = security.exchangeTrial(contact)
+    let contact = req.body.contact
+    let trial = security.exchangeTrial(contact)
 
     trial.then(challenge =>
     {
