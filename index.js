@@ -3,6 +3,7 @@ const app = express()
 const config = require('./config.js').data
 const compression = require('compression')
 const bodyparser = require('body-parser')
+const utilities = require('./utilities.js')
 const security = require('./security.js')(config)
 const DataStore = require("nedb")
 const PORT = config.port
@@ -82,7 +83,30 @@ app.post('/contact/search/:name', (req, res) =>
 })
 
 
-// Todo: Provide a way to download binary contacts from the server. 
+function downloadBinaryContact(req, res)
+{
+    let name = grab(req, "name").trim()
+    db.contacts.find({name: name}, {_id: 0}, (err, docs) =>
+    {
+        if(docs.length)
+        {
+            var data =  utilities.exportContact(docs[0].contact)
+            res.header('Content-Type', 'application/octet-stream')
+            res.header('Content-Length', data.length),
+            res.header('Content-Disposition', 'attachment;filename=' + name + '.contact')
+            res.end(data, 'binary')
+        }
+        else
+        {
+            res.json(false)   
+        }
+    })
+}
+
+
+// To-do: Provide a way to download binary contacts from the server. 
+app.post('/contact/get/binary', downloadBinaryContact)
+app.get('/contact/get/binary', downloadBinaryContact)
 
 // Modify this to allow people to revoke their own keys from the server.
 app.post('/contact/publish/confirm', (req, res) =>
