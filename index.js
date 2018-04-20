@@ -4,8 +4,7 @@ const config = require('./config.js').data
 
 if(process.env.SECRET_SECURITY_KEY)
 {
-    config.security.key = process.env.SECRET_KEY.toString();
-    console.log(config.security.key)
+    config.security.key = process.env.SECRET_SECURITY_KEY.toString()
 }
 
 const compression = require('compression')
