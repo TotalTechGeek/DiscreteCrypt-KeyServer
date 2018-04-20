@@ -1,0 +1,289 @@
+<html>
+<head>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.10.16/css/jquery.dataTables.min.css" crossorigin="anonymous">
+
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+    <script src="http://peterolson.github.com/BigInteger.js/BigInteger.min.js"></script>
+    <script src="http://ricmoo.github.io/scrypt-js/scrypt.js" type="text/javascript"></script>
+    <script src="http://ricmoo.github.io/scrypt-js/thirdparty/setImmediate.js" type="text/javascript"></script>
+    
+    <script src="http://ricmoo.github.io/scrypt-js/thirdparty/buffer.js" type="text/javascript"></script>
+    <script src="https://cdn.datatables.net/1.10.16/js/jquery.dataTables.min.js"></script>
+    <script src="scripts/basylbinder.min.js"></script>
+    <style>
+        .indented
+        {
+            margin: 10px 10px 10px 10px;
+        }
+    </style>
+    <script>
+        function toHexString(byteArray) 
+        {
+            var s = '';
+            byteArray.forEach(byte =>
+            {
+                s += ('0' + (byte & 0xFF).toString(16)).slice(-2);
+            });
+            return s;
+        }
+
+        function getDH(arr, offset)
+        {
+            var len1 = arr[offset] | arr[offset+1] << 8 
+            offset += 2 
+            
+            var len2 = arr[offset] | arr[offset+1] << 8
+            offset += 2
+
+            var modulus = toHexString(arr.slice(offset, offset + len1))
+            var generator = toHexString(arr.slice(offset + len1, offset + len1 + len2))
+            
+            return { modulus: modulus, generator: generator };
+        }
+
+        function getScrypt(arr, offset)
+        {
+            var g = arr => arr[0] | arr[1] << 8 | arr[2] << 16 | arr[3] << 24
+
+            var f = () => 
+            {
+                offset += 4;
+                return arr.slice(offset - 4, offset);
+            }
+
+            var N = g(f())
+            var P = g(f())             
+            var R = g(f()) 
+            var len = g(f())
+
+            return {N: N, P: P, R: R, len: len}
+        }
+
+
+        // Unnecessary
+        function pohlig(b)
+        {
+            b = b.minus(1);
+            var n = 1;
+            for(var i = 65536; i >= 2; i--)
+            {
+                var x = b.divmod(i)
+                if(x.remainder.equals(0))
+                {
+                    n *= i; 
+                    b = x.quotient;
+                }
+            }
+
+            return [b, n];
+        }
+
+
+        function padBuf(x)
+        {
+            function pad(x)
+            {
+                if(x.length % 2 == 1) return '0' + x
+                return x
+            }
+            return new buffer.SlowBuffer(pad(x), 'hex');
+        }
+
+        function submitContact(contact)
+        {
+            // gets the challenge
+            $.ajax(
+            {
+                type: 'POST',
+                url: '/contact/publish/request',
+                data: {
+                    contact: contact
+                },
+                success: data =>
+                {   
+                    $$.set("out", JSON.stringify(data))
+                    
+                    var pass = $$.get("password").normalize('NFKC')
+                    pass = new buffer.SlowBuffer(pass, 'utf-8')
+
+                    // gets the private key for the user
+                    scrypt([...pass], padBuf(contact.person.salt), contact.scrypt.N, contact.scrypt.R, contact.scrypt.P, contact.scrypt.len, function(x,y,z)
+                    {
+                        $$.set("percent", (y * 100) | 0)
+                        if(z)
+                        {
+                            next(z, data)
+                        }
+                    })
+                }
+            })
+
+            function next(privData, data)
+            {
+                var modulus = bigInt(contact.dh.modulus, 16) 
+                var priv = bigInt(toHexString(privData), 16)
+                var challenge = bigInt(data.challenge, 16);
+
+                var res = challenge.modPow(priv, modulus).toString(16)
+                res = [...padBuf(res)]
+
+                // gets the result
+                scrypt(res, padBuf(data.salt), data.scrypt.N, data.scrypt.R, data.scrypt.P, data.scrypt.len, (x,y,z) =>
+                {
+                    if(z)
+                    {
+                        submitResponse(toHexString(z), data)
+                    }
+                })
+            }
+
+            function submitResponse(response, data)
+            {
+                $.ajax({
+                    type: 'POST',
+                    url: '/contact/publish/confirm',
+                    data: { response: {hmac: data.hmac, data: response }, contact: contact, name: $$.get("username") },
+                    success: data =>
+                    {
+                        // $$.set("percent", "")
+                        $$.set("out", ""+data)
+                    }
+                })
+            }
+        }
+
+
+
+        function exportContact(contact)
+        {
+            var arr = []
+            
+            function push16(i)
+            {
+                arr.push(i & 255)
+                arr.push((i>>8) & 255);
+            }
+            
+            function push32(i)
+            {
+                push16(i)
+                arr.push((i>>16) & 255);
+                arr.push((i>>24) & 255);
+            }
+
+            function push(x)
+            {
+                if(typeof x === "string")
+                {
+                    x.split('').map(i=>i.charCodeAt(0)).forEach(i=>arr.push(i))
+                }
+            }
+
+            function hexPush(x)
+            {
+                if(x.length % 2) x = '0' + x;
+                x.match(/.{2}/g).map(i=>arr.push(parseInt(i, 16)))
+            }
+
+            function hexLen(x)
+            {
+                if(x.length % 2) x = '0' + x;
+                return x.length / 2;
+            }
+
+            // Person
+            push16(contact.person.identity.length)
+            push16(hexLen(contact.person.salt))
+            push16(hexLen(contact.person.pub))            
+
+            push(contact.person.identity)
+            hexPush(contact.person.salt)
+            hexPush(contact.person.pub)
+            
+            // Scrypt
+            push32(contact.scrypt.N);
+            push32(contact.scrypt.P);
+            push32(contact.scrypt.R);
+            push32(contact.scrypt.len);
+
+            // DH
+            push16(hexLen(contact.dh.modulus))
+            push16(hexLen(contact.dh.generator))
+            
+            hexPush(contact.dh.modulus)
+            hexPush(contact.dh.generator)
+
+            return arr;
+        }
+    
+
+
+        function f()
+        {
+            var reader = new FileReader(); 
+            
+            reader.onloadend = (file) =>
+            {
+                var arrayBuffer = reader.result
+                var bytes = new Uint8Array(arrayBuffer)
+                
+                var len =  bytes[0] | bytes[1] << 8
+                var len2 = bytes[2] | bytes[3] << 8
+                var len3 = bytes[4] | bytes[5] << 8
+
+                var identity = [...bytes.slice(6, 6+len)].map(i=>String.fromCharCode(i)).join('');
+                $$.set("name", identity)
+
+                var salt = toHexString([...bytes.slice(6+len, 6+len+len2)])
+                var pub = toHexString([...bytes.slice(6+len+len2, 6+len+len2+len3)])
+
+                var scryptVal = getScrypt(bytes, 6+len+len2+len3);
+                var dh = getDH(bytes, 6+len+len2+len3+16)
+            
+                var contact = { person: {identity: identity, pub: pub, salt: salt}, scrypt: scryptVal, dh: dh};
+                $$.set("contact", contact)
+
+                submitContact(contact)
+            }
+
+            reader.readAsArrayBuffer($$.get('file')[0])
+        }
+
+    </script>
+</head>
+<body>
+    <vars name file contact percent out username password></vars>
+    
+    <!-- BasylBinder Test -->
+    <div watch="html" class="indented">
+        <input one-way type="file" bind="file" bind-to="files"  />
+        <br><br>
+        <div style="display: {{file|file.length?'inherit':'none'}};">
+            <input bind="username" placeholder="Username"> <br><br>
+            <input bind="password" placeholder="Password" type="password"> <br><br>
+            <button onclick="f()">Submit</button>
+            <br><br>
+            <div class="progress" style="width:200px">
+                <div class="progress-bar progress-bar-striped" role="progressbar" aria-valuenow="{{percent}}" style="width: {{percent}}%;" aria-valuemin="0" aria-valuemax="100"></div>
+
+                <span style="display: {{percent|percent==100?'none':'inherit'}}">
+                    &thinsp; {{percent}}
+                </span>
+
+              </div>
+            <br> 
+        </div>        
+        {{out}} 
+        <br>
+        <a href="/list">Contacts</a>
+    </div>
+
+    <script>
+
+    $$.all()
+    </script>
+</body>
+</html>

@@ -1,0 +1,166 @@
+<html>
+<head>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.10.16/css/jquery.dataTables.min.css" crossorigin="anonymous">
+
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+    <script src="http://peterolson.github.com/BigInteger.js/BigInteger.min.js"></script>
+    <script src="http://ricmoo.github.io/scrypt-js/scrypt.js" type="text/javascript"></script>
+    <script src="http://ricmoo.github.io/scrypt-js/thirdparty/setImmediate.js" type="text/javascript"></script>
+    
+    <script src="http://ricmoo.github.io/scrypt-js/thirdparty/buffer.js" type="text/javascript"></script>
+    <script src="https://cdn.datatables.net/1.10.16/js/jquery.dataTables.min.js"></script>
+    <script src="scripts/basylbinder.min.js"></script>
+    <style>
+        .indented
+        {
+            margin: 10px 10px 10px 10px;
+        }
+    </style>
+
+    <script>
+
+    function exportContact(contact)
+    {
+        var arr = []
+        
+        function push16(i)
+        {
+            arr.push(i & 255)
+            arr.push((i>>8) & 255);
+        }
+        
+        function push32(i)
+        {
+            push16(i)
+            arr.push((i>>16) & 255);
+            arr.push((i>>24) & 255);
+        }
+
+        function push(x)
+        {
+            if(typeof x === "string")
+            {
+                x.split('').map(i=>i.charCodeAt(0)).forEach(i=>arr.push(i))
+            }
+        }
+
+        function hexPush(x)
+        {
+            if(x.length % 2) x = '0' + x;
+            x.match(/.{2}/g).map(i=>arr.push(parseInt(i, 16)))
+        }
+
+        function hexLen(x)
+        {
+            if(x.length % 2) x = '0' + x;
+            return x.length / 2;
+        }
+
+        // Person
+        push16(contact.person.identity.length)
+        push16(hexLen(contact.person.salt))
+        push16(hexLen(contact.person.pub))       
+
+        push(contact.person.identity)
+        hexPush(contact.person.salt)
+        hexPush(contact.person.pub)
+        
+        // Scrypt
+        push32(contact.scrypt.N);
+        push32(contact.scrypt.P);
+        push32(contact.scrypt.R);
+        push32(contact.scrypt.len);
+        
+        // DH
+        push16(hexLen(contact.dh.modulus))
+        push16(hexLen(contact.dh.generator))
+        
+        hexPush(contact.dh.modulus)
+        hexPush(contact.dh.generator)
+        return new Uint8Array(arr);
+    }
+    
+    function f(username, callback)
+    {
+        $.ajax(
+            {
+                type: 'POST',
+                url: '/contact/get',
+                data: { name: username },
+                success: callback
+            }
+        )
+
+    }
+    
+    </script>
+    
+</head>
+<body>  
+    <!-- BasylBinder Test -->
+    <div watch="html" class="indented">
+      
+        <table id="myTable">
+
+        </table>
+
+        <a href="/">Submit</a>
+
+    </div>
+
+    <script>
+        var saveByteArray = (function () {
+        var a = document.createElement("a");
+        document.body.appendChild(a);
+        a.style = "display: none";
+        return function (data, name) {
+            var blob = new Blob(data, {type: "octet/stream"}),
+                url = window.URL.createObjectURL(blob);
+            a.href = url;
+            a.download = name;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        };
+    }());
+
+    function decodeEntities(encodedString) 
+    {
+        var textArea = document.createElement('textarea');
+        textArea.innerHTML = encodedString;
+        return textArea.value;
+    }
+
+    $.ajax({
+        type: 'POST',
+        url: '/contact/get/names',
+        success: data =>
+        {
+            let head = []
+            if(data.length) head = Object.keys(data[0])
+
+            $('<div/>').text('This is fun & stuff').html();
+
+            data = data.map(i=>[i.name, i.identity].map(i=>$('<div/>').text(i).html()));
+            $('#myTable').html($$.from(data).table({head:head}))
+            const table = $('#myTable').DataTable()
+
+            $('.dataTable').on('click', 'tbody tr', function(e) 
+            {
+                let data = table.row(this).data()
+
+                // Now we can do something with said data.
+                f(decodeEntities(data[0]), i =>
+                {
+                    saveByteArray([exportContact(i[0].contact)], decodeEntities(data[0]) + ".contact")   
+                })
+            })
+        }
+    })
+
+    $$.all()
+    </script>
+</body>
+</html>

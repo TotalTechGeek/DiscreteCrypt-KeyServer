@@ -1,0 +1,14 @@
+{
+    "port": 30000, 
+    "security" :
+    {
+        "key": "CSa$J_jdw><24./axvgumyugl;oqshkfju3uifu88d92n2d",
+        "hash": "sha384", 
+        "scrypt": {
+            "N" : 1024,
+            "R": 8,
+            "P": 1, 
+            "len": 32
+        }
+    }
+}
