@@ -189,34 +189,37 @@
     </script>
 </head>
 <body>
+    {{>title}}
+    <div class="indented">
+    <h3 >Upload Contact</h3>
+    <hr>
+    </div>
     <vars name file contact percent out username password></vars>
     
     <!-- BasylBinder Test -->
     <div watch="html" class="indented">
         <input one-way type="file" bind="file" bind-to="files"  />
         <br><br>
-        <div style="display: {{file|file.length?'inherit':'none'}};">
+        <div style="display: \{{file|file.length?'inherit':'none'}};">
             <input bind="username" placeholder="Username"> <br><br>
             <input bind="password" placeholder="Password" type="password"> <br><br>
             <button onclick="f()">Submit</button>
             <br><br>
             <div class="progress" style="width:200px">
-                <div class="progress-bar progress-bar-striped" role="progressbar" aria-valuenow="{{percent}}" style="width: {{percent}}%;" aria-valuemin="0" aria-valuemax="100"></div>
+                <div class="progress-bar progress-bar-striped" role="progressbar" aria-valuenow="\{{percent}}" style="width: \{{percent}}%;" aria-valuemin="0" aria-valuemax="100"></div>
 
-                <span style="display: {{percent|percent==100?'none':'inherit'}}">
-                    &thinsp; {{percent}}
+                <span style="display: \{{percent|percent==100?'none':'inherit'}}">
+                    &thinsp; \{{percent}}
                 </span>
 
               </div>
             <br> 
         </div>        
-        {{out}} 
+        \{{out}} 
         <br>
-        <a href="/list">Contacts</a> <a href="/create">Create</a>
     </div>
 
     <script>
-
     $$.all()
     </script>
 </body>

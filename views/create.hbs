@@ -108,10 +108,9 @@
             window.crypto.getRandomValues(salt)
             salt = toHexString(salt)
             
-            
             scrypt(password, padBuf(salt), scryptValues.N, scryptValues.R, scryptValues.P, scryptValues.len, (x,y,z) =>
             {
-                $$.set("percent", y)
+                $$.set("percent", (y * 100) | 0)
 
                 if(z)
                 {
@@ -159,19 +158,26 @@
     </script>
 </head>
 <body>
+    {{>title}}
     <vars username identity password percent out bits=0 suggest></vars>
     
     <!-- BasylBinder Test -->
     <div watch="html" class="indented">
+        <h3>Create Contact</h3>
+        <hr>
         <input bind="username" placeholder="Username"> <br><br>
         <input bind="identity" placeholder="Identity"> <br><br>
-        <input bind="password" placeholder="Password" type="password" onkeyup="c()"> <br> Estimated Worst Case Entropy: {{bits}} bits <br> {{suggest}} <br><br>
+        <input bind="password" placeholder="Password" type="password" onkeyup="c()"> <br> Estimated Worst Case Entropy: \{{bits}} bits <br> \{{suggest}} <br><br>
         <button class="btn" onclick="create()">Submit</button>
-        {{percent}}
+        <br><br>
+        
+        <div class="progress" style="width:200px">
+            <div class="progress-bar progress-bar-striped" role="progressbar" aria-valuenow="\{{percent}}" style="width: \{{percent}}%;" aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+
         <br>
-        {{out}}
+        \{{out}}
         <br> <br>
-        <a href="/list">Contacts</a> <a href="/">Submit</a> 
     </div>
     <script>$$.all()</script>
 </body>

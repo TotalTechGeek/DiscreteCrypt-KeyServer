@@ -18,6 +18,7 @@
     "body-parser": "^1.18.2",
     "compression": "^1.7.2",
     "express": "^4.16.3",
+    "express-handlebars": "^3.0.0",
     "nedb": "^1.8.0",
     "scrypt-js": "^2.0.3"
   }

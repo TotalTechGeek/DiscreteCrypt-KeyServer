@@ -7,6 +7,7 @@ if(process.env.SECRET_SECURITY_KEY)
     config.security.key = process.env.SECRET_SECURITY_KEY.toString()
 }
 
+const exphbs  = require('express-handlebars');
 const compression = require('compression')
 const bodyparser = require('body-parser')
 const utilities = require('./utilities.js')
@@ -22,32 +23,54 @@ let db = {}
 db.contacts = new DataStore({ filename: 'file.nedb', autoload: true })
 
 
+
+app.engine('.hbs', exphbs({extname: '.hbs', helpers: 
+{
+    eq: function(a, b, t, f)
+    {
+        if(a == b)
+        {
+            return t
+        }
+        return f
+    }
+}}));
+app.set('view engine', '.hbs');
+
+
 app.use(express.static(__dirname + '/public'))
 app.use(compression())
 app.use(bodyparser.json())
 app.use(bodyparser.urlencoded({ extended: true }))
 
-function alias(from, to)
+
+let pages = []
+function render(from, to, name)
 {
+    pages.push({ name:  name, link: from })
     app.get(from, (req, res) =>
     {
-        res.redirect(to)
+        res.render(to, { pages: pages, current: from});
     })
 }
 
-function grab(req, val)
+
+
+function grab(req, val, name)
 {
+
     return req.body[val] || req.query[val]
 }
 
-alias('/', '/index.html')
-alias('/list', '/contacts.html')
-alias('/create', '/create.html')
+render('/', 'index', 'Home')
+render('/list', 'contacts', 'Contacts')
+render('/create', 'create', 'Create')
 
 app.listen(PORT, IP, () =>
 {
     console.log(`Listening on ${PORT}`)
 });
+
 
 
 app.post('/contact/publish/request', (req, res) => 
