@@ -14,6 +14,14 @@
     <script src="https://cdn.datatables.net/1.10.16/js/jquery.dataTables.min.js"></script>
     <script src="scripts/basylbinder.min.js"></script>
     <style>
+        .notransition 
+        { 
+            -webkit-transition: none !important; 
+            -moz-transition: none !important; 
+            -o-transition: none !important; 
+            -ms-transition: none !important; 
+            transition: none !important; 
+        }
         .indented
         {
             margin: 10px 10px 10px 10px;
@@ -205,13 +213,8 @@
             <input bind="password" placeholder="Password" type="password"> <br><br>
             <button onclick="f()">Submit</button>
             <br><br>
-            <div class="progress" style="width:200px">
-                <div class="progress-bar progress-bar-striped" role="progressbar" aria-valuenow="\{{percent}}" style="width: \{{percent}}%;" aria-valuemin="0" aria-valuemax="100"></div>
-
-                <span style="display: \{{percent|percent==100?'none':'inherit'}}">
-                    &thinsp; \{{percent}}
-                </span>
-
+            <div class="progress notransition" style="width:200px">
+                <div class="progress-bar progress-bar-striped notransition" role="progressbar" aria-valuenow="\{{percent}}" style="width: \{{percent}}%;" aria-valuemin="0" aria-valuemax="100"></div>
               </div>
             <br> 
         </div>        
