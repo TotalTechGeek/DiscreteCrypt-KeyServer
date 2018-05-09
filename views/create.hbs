@@ -26,9 +26,9 @@
         const generator = bigInt("02", 16)
 
         const scryptValues = {
-            "N": 16384,
-            "P": 16,
-            "R": 8,
+            "N": (1 << 14),
+            "P": 3,
+            "R": 10,
             "len": 64
         }
 
